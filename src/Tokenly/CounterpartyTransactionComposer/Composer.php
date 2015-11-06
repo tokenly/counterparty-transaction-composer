@@ -10,6 +10,7 @@ use BitWasp\Bitcoin\Transaction\Factory\TxSigner;
 use BitWasp\Bitcoin\Transaction\TransactionFactory;
 use BitWasp\Buffertools\Buffer;
 use Tokenly\CounterpartyTransactionComposer\Exception\ComposerException;
+use Tokenly\CounterpartyTransactionComposer\Quantity;
 use \Exception;
 
 /*
@@ -71,8 +72,14 @@ class Composer
 
     //  @see composeSend
     public function composeBTCSend($btc_quantity, $destination, $private_key_wif, $utxos, $change_address_collection=null, $fee=null) {
-        $fee_satoshis          = ($fee === null ? self::DEFAULT_FEE : intval(round($fee * self::SATOSHI)));
-        $btc_quantity_satoshis = intval(round($btc_quantity * self::SATOSHI));
+        // normalize $btc_quantity
+        if ($btc_quantity instanceof Quantity) {
+            $btc_quantity_satoshis = $btc_quantity->getSatoshis();
+        } else {
+            $btc_quantity_satoshis = intval(round($btc_quantity * self::SATOSHI));
+        }
+
+        $fee_satoshis = ($fee === null ? self::DEFAULT_FEE : intval(round($fee * self::SATOSHI)));
 
         // get total and change amount
         $change_amounts = $this->calculateAndValidateChange($utxos, $btc_quantity_satoshis, $fee_satoshis, $change_address_collection);

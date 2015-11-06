@@ -5,6 +5,7 @@ use BitWasp\Bitcoin\Transaction\TransactionFactory;
 use Tokenly\BitcoinAddressLib\BitcoinAddressGenerator;
 use Tokenly\CounterpartyTransactionComposer\Composer;
 use Tokenly\CounterpartyTransactionComposer\OpReturnBuilder;
+use Tokenly\CounterpartyTransactionComposer\Quantity;
 use \PHPUnit_Framework_Assert as PHPUnit;
 
 /*
@@ -25,6 +26,19 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         // 434e545250525459 | 00000000 | 000000000004fadf | 000000001dcd6500
         // prefix             type       asset              amount
         $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'000000001dcd6500';
+        PHPUnit::assertEquals($expected_hex, $hex);
+    }
+
+    public function testComposeIndivisibleAssetOpReturn() {
+        $op_return_builder = new OpReturnBuilder();
+
+        $composer = new Composer();
+        $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(Quantity::newIndivisible(6), 'SOUP', $fake_txid));
+
+        // 434e545250525459 | 00000000 | 000000000004fadf | 0000000000000006
+        // prefix             type       asset              amount
+        $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'0000000000000006';
         PHPUnit::assertEquals($expected_hex, $hex);
     }
 
@@ -77,7 +91,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee);
+        list($txid, $signed_hex) = $composer->composeSend($asset, new Quantity($quantity), $destination, $wif_key, $utxos, $sender_address, $fee);
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
