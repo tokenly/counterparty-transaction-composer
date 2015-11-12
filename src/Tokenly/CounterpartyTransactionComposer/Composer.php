@@ -31,10 +31,10 @@ class Composer
      * Composes a send transaction
      * @param  string $asset                     A counterparty asset name or BTC
      * @param  mixed  $quantity                  Quantity of asset to send.  Accepts a float or a Tokenly\CounterpartyTransactionComposer\Quantity object.  Use a Quantity object for indivisible assets.
-     * @param  string $destination               Destination bitcoin address
+     * @param  mixed $destination                A single destination bitcoin address.  For BTC sends an array of [[address, amount], [address, amount]] is also allowed.  Amounts should be float values.
      * @param  string $private_key_wif           The private key in ASCII WIF format
      * @param  array  $utxos                     An array of UTXOs.  Each UTXO should be ['txid' => txid, 'n' => n, 'amount' => amount (in satoshis), 'script' => script hexadecimal string]
-     * @param  mixed  $change_address_collection a single address string to receive all change. Or an array of [[address, amount], [address, amount], [address]].  An address with no amount for the last entry will send the remaining change to that address.
+     * @param  mixed  $change_address_collection a single address string to receive all change. Or an array of [[address, amount], [address, amount], [address]].  Amounts should be float values.  An address with no amount for the last entry will send the remaining change to that address.
      * @param  float  $fee                       A fee
      * @param  float  $btc_dust                  Amount of BTC dust to send with the Counterparty transaction.
      * @return Array returns a ComposedTransaction object
@@ -56,6 +56,7 @@ class Composer
         $this->addInputs($utxos, $tx_builder);
 
         // pay the btc_dust to the destination
+        if (is_array($destination)) { throw new Exception("Multiple destinations are not supported for cunterparty sends", 1); }
         $tx_builder->payToAddress($btc_dust_satoshis, AddressFactory::fromString($destination));
 
         // build the OP_RETURN script
@@ -75,13 +76,16 @@ class Composer
     }
 
     //  @see composeSend
-    public function composeBTCSend($btc_quantity, $destination, $private_key_wif, $utxos, $change_address_collection=null, $fee=null) {
+    public function composeBTCSend($btc_quantity, $destination_or_destinations, $private_key_wif, $utxos, $change_address_collection=null, $fee=null) {
         // normalize $btc_quantity
         if ($btc_quantity instanceof Quantity) {
             $btc_quantity_satoshis = $btc_quantity->getSatoshis();
         } else {
             $btc_quantity_satoshis = intval(round($btc_quantity * self::SATOSHI));
         }
+
+        // normalize the destination pairs
+        list($destinations, $btc_quantity_satoshis) = $this->normalizeDestinations($destination_or_destinations, $btc_quantity_satoshis);
 
         $fee_satoshis = ($fee === null ? self::DEFAULT_FEE : intval(round($fee * self::SATOSHI)));
 
@@ -93,8 +97,12 @@ class Composer
         // add the UTXO inputs
         $this->addInputs($utxos, $tx_builder);
 
-        // pay the btc_dust to the destination
-        $tx_builder->payToAddress($btc_quantity_satoshis, AddressFactory::fromString($destination));
+        // pay the btc amount to each destination
+        foreach($destinations as $destination_pair) {
+            $address = $destination_pair[0];
+            $quantity_satoshi = $destination_pair[1];
+            $tx_builder->payToAddress($quantity_satoshi, AddressFactory::fromString($address));
+        }
 
         // pay the change to self
         $this->payChange($change_amounts, $tx_builder);
@@ -223,6 +231,30 @@ class Composer
             $total += $utxo['amount'];
         }
         return $total;
+    }
+
+    protected function normalizeDestinations($destination_or_destinations, $total_btc_quantity_satoshis) {
+        if (is_array($destination_or_destinations)) {
+            $normalized_destinations = [];
+            $calculated_btc_quantity_satoshis = 0;
+            foreach($destination_or_destinations as $destination_pair) {
+                $satoshis_int = intval(round($destination_pair[1] * self::SATOSHI));
+                $normalized_destinations[] = [$destination_pair[0], $satoshis_int];
+
+                $calculated_btc_quantity_satoshis += $satoshis_int;
+            }
+
+            if ($calculated_btc_quantity_satoshis != $total_btc_quantity_satoshis) { throw new Exception("Invalid BTC quantity total", 1); }
+            return [$normalized_destinations, $total_btc_quantity_satoshis];
+        }
+
+        // just an address
+        return [
+            [
+                [$destination_or_destinations, $total_btc_quantity_satoshis],
+            ],
+            $total_btc_quantity_satoshis,
+        ];
     }
 
 }

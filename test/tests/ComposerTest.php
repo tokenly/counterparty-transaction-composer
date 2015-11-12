@@ -126,6 +126,42 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
     }
 
+    public function testComposeMultiBTCTransaction() {
+        list($sender_address, $wif_key) = $this->newAddressAndKey();
+
+        // variables
+        $utxos       = $this->fakeUTXOs($sender_address);
+        $asset       = 'BTC';
+        $quantity    = 0.03;
+        $destinations = [['1AAATEST111XXXXXXXXXXXXXXXXXWv3ePp',0.01],['1AAATEST222XXXXXXXXXXXXXXXXXd4u5dj',0.02],];
+        $fee         = 0.0001;
+
+        // compose the send
+        $composer = new Composer();
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, new Quantity($quantity), $destinations, $wif_key, $utxos, $sender_address, $fee));
+
+        // parse the signed hex
+        $transaction = TransactionFactory::fromHex($signed_hex);
+
+        // 3 outputs
+        PHPUnit::assertCount(3, $transaction->getOutputs());
+
+        // check destinations
+        $tx_output_0 = $transaction->getOutput(0);
+        PHPUnit::assertEquals(intval(round(0.01 * self::SATOSHI)), $tx_output_0->getValue());
+        PHPUnit::assertEquals($destinations[0][0], AddressFactory::fromOutputScript($tx_output_0->getScript())->getAddress());
+        $tx_output_1 = $transaction->getOutput(1);
+        PHPUnit::assertEquals(intval(round(0.02 * self::SATOSHI)), $tx_output_1->getValue());
+        PHPUnit::assertEquals($destinations[1][0], AddressFactory::fromOutputScript($tx_output_1->getScript())->getAddress());
+
+        // check change output 
+        $tx_output_2 = $transaction->getOutput(2);
+        PHPUnit::assertEquals(intval(round((0.1235 - $fee - $quantity) * self::SATOSHI)), $tx_output_2->getValue());
+        PHPUnit::assertEquals($sender_address, AddressFactory::fromOutputScript($tx_output_2->getScript())->getAddress());
+
+    }
+
+
     public function testComposeTransactionWithNoChange_BTC() {
         list($sender_address, $wif_key) = $this->newAddressAndKey();
 
