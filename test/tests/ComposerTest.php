@@ -3,6 +3,7 @@
 use BitWasp\Bitcoin\Address\AddressFactory;
 use BitWasp\Bitcoin\Transaction\TransactionFactory;
 use Tokenly\BitcoinAddressLib\BitcoinAddressGenerator;
+use Tokenly\CounterpartyTransactionComposer\ComposedTransaction;
 use Tokenly\CounterpartyTransactionComposer\Composer;
 use Tokenly\CounterpartyTransactionComposer\OpReturnBuilder;
 use Tokenly\CounterpartyTransactionComposer\Quantity;
@@ -19,26 +20,36 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
     public function testComposeOpReturn() {
         $op_return_builder = new OpReturnBuilder();
 
-        $composer = new Composer();
         $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
-        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(5, 'SOUP', $fake_txid));
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(100, 'SOUP', $fake_txid));
 
-        // 434e545250525459 | 00000000 | 000000000004fadf | 000000001dcd6500
+        // 434e545250525459 | 00000000 | 000000000004fadf | 00000002540be400
         // prefix             type       asset              amount
-        $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'000000001dcd6500';
+        $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'00000002540be400';
         PHPUnit::assertEquals($expected_hex, $hex);
     }
 
     public function testComposeIndivisibleAssetOpReturn() {
         $op_return_builder = new OpReturnBuilder();
 
-        $composer = new Composer();
         $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
-        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(Quantity::newIndivisible(6), 'SOUP', $fake_txid));
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(Quantity::individisibleAssetQuantity(600), 'SOUP', $fake_txid));
 
-        // 434e545250525459 | 00000000 | 000000000004fadf | 0000000000000006
+        // 434e545250525459 | 00000000 | 000000000004fadf | 0000000000000258
         // prefix             type       asset              amount
-        $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'0000000000000006';
+        $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'0000000000000258';
+        PHPUnit::assertEquals($expected_hex, $hex);
+    }
+
+    public function testComposeDivisibleAssetOpReturn() {
+        $op_return_builder = new OpReturnBuilder();
+
+        $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(new Quantity(600), 'SOUP', $fake_txid));
+
+        // 434e545250525459 | 00000000 | 000000000004fadf | 0000000df8475800
+        // prefix             type       asset              amount
+        $expected_hex = '434e545250525459'.'00000000'.'000000000004fadf'.'0000000df8475800';
         PHPUnit::assertEquals($expected_hex, $hex);
     }
 
@@ -55,7 +66,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust);
+        list($txid, $signed_hex, $new_utxos) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -77,6 +88,10 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         $tx_output_2 = $transaction->getOutput(2);
         PHPUnit::assertEquals(intval(round((0.123 + 0.0005 - $fee - $btc_dust) * self::SATOSHI)), $tx_output_2->getValue());
         PHPUnit::assertEquals($sender_address, AddressFactory::fromOutputScript($tx_output_2->getScript())->getAddress());
+
+        // check $new_utxos
+        PHPUnit::assertNotEmpty($new_utxos);
+        PHPUnit::assertEquals(5432, $new_utxos[0]['amount']);
     }
 
     public function testComposeBTCTransaction() {
@@ -91,7 +106,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, new Quantity($quantity), $destination, $wif_key, $utxos, $sender_address, $fee);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, new Quantity($quantity), $destination, $wif_key, $utxos, $sender_address, $fee));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -123,7 +138,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -150,7 +165,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -186,7 +201,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust));
     }
 
     /**
@@ -206,7 +221,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee));
     }
 
     /**
@@ -227,7 +242,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, null, $fee, $btc_dust);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, null, $fee, $btc_dust));
     }
 
     /**
@@ -247,7 +262,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, null, $fee);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, null, $fee));
     }
 
     /**
@@ -271,7 +286,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $change_addresses, $fee);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $change_addresses, $fee));
     }
 
 
@@ -292,7 +307,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $change_addresses, $fee);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $change_addresses, $fee));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -338,7 +353,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $change_addresses, $fee, $btc_dust);
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $change_addresses, $fee, $btc_dust));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -370,7 +385,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
     // ------------------------------------------------------------------------
     
-    protected static function arc4decrypt($key, $encrypted_text)
+    protected function arc4decrypt($key, $encrypted_text)
     {
         $init_vector = '';
         return bin2hex(mcrypt_decrypt(MCRYPT_ARCFOUR, hex2bin($key), hex2bin($encrypted_text), MCRYPT_MODE_STREAM, $init_vector));
@@ -407,6 +422,10 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
             'amount' => intval(round($amount * self::SATOSHI)),
             'script' => $script->getHex(),
         ];
+    }
+
+    protected function decomposeComposedTransaction(ComposedTransaction $composed_transaction) {
+        return [$composed_transaction->getTxId(), $composed_transaction->getTransactionHex(), $composed_transaction->getOutputUtxos()];
     }
 
 }

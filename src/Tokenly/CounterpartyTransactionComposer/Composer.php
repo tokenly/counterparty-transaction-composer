@@ -9,6 +9,7 @@ use BitWasp\Bitcoin\Script\ScriptFactory;
 use BitWasp\Bitcoin\Transaction\Factory\TxSigner;
 use BitWasp\Bitcoin\Transaction\TransactionFactory;
 use BitWasp\Buffertools\Buffer;
+use Tokenly\CounterpartyTransactionComposer\ComposedTransaction;
 use Tokenly\CounterpartyTransactionComposer\Exception\ComposerException;
 use Tokenly\CounterpartyTransactionComposer\Quantity;
 use \Exception;
@@ -29,14 +30,14 @@ class Composer
     /**
      * Composes a send transaction
      * @param  string $asset                     A counterparty asset name or BTC
-     * @param  float  $quantity                  Quantity of asset to send
+     * @param  mixed  $quantity                  Quantity of asset to send.  Accepts a float or a Tokenly\CounterpartyTransactionComposer\Quantity object.  Use a Quantity object for indivisible assets.
      * @param  string $destination               Destination bitcoin address
      * @param  string $private_key_wif           The private key in ASCII WIF format
      * @param  array  $utxos                     An array of UTXOs.  Each UTXO should be ['txid' => txid, 'n' => n, 'amount' => amount (in satoshis), 'script' => script hexadecimal string]
      * @param  mixed  $change_address_collection a single address string to receive all change. Or an array of [[address, amount], [address, amount], [address]].  An address with no amount for the last entry will send the remaining change to that address.
      * @param  float  $fee                       A fee
      * @param  float  $btc_dust                  Amount of BTC dust to send with the Counterparty transaction.
-     * @return Array Returns [string $transactionId, string $transactionHex]
+     * @return Array returns a ComposedTransaction object
      */
     public function composeSend($asset, $quantity, $destination, $private_key_wif, $utxos, $change_address_collection=null, $fee=null, $btc_dust=null) {
         if ($asset == 'BTC') {
@@ -67,7 +68,10 @@ class Composer
         $this->payChange($change_amounts, $tx_builder);
 
         // sign
-        return $this->signTx($private_key_wif, $tx_builder);
+        $signed_transaction = $this->signTx($private_key_wif, $tx_builder);
+
+        // return [$txid, $hex, $output_utxos]
+        return $this->buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $utxos);
     }
 
     //  @see composeSend
@@ -96,7 +100,10 @@ class Composer
         $this->payChange($change_amounts, $tx_builder);
 
         // sign
-        return $this->signTx($private_key_wif, $tx_builder);
+        $signed_transaction = $this->signTx($private_key_wif, $tx_builder);
+
+        // return [$txid, $hex, $output_utxos]
+        return $this->buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $utxos);
     }
 
     // ------------------------------------------------------------------------
@@ -111,7 +118,7 @@ class Composer
 
         // check change address
         if (!$change_address_collection) {
-            if ($vins_amount_total_satoshis > 0) { throw new ComposerException("No change address specified", ComposerException::ERROR_NO_CHANGE_ADDRESS); }
+            if ($total_change_amount_satoshis > 0) { throw new ComposerException("No change address specified", ComposerException::ERROR_NO_CHANGE_ADDRESS); }
             
             // no change amounts
             return [];
@@ -187,11 +194,28 @@ class Composer
         }
 
         $signed_transaction = $signer->get();
-        $txid = $signed_transaction->getTxId();
-        $hex  = $signed_transaction->getHex();
-        return [$txid, $hex];
+        return $signed_transaction;
     }
 
+    protected function buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $input_utxos) {
+        $txid = $signed_transaction->getTxId()->getHex();
+        $hex  = $signed_transaction->getHex();
+
+        // get the UTXOs we just created
+        $output_utxos = [];
+        foreach ($signed_transaction->getOutputs() as $n => $output) {
+            $has_value = ($output->getValue() > 0);
+
+            $output_utxos[] = [
+                'txid'        => $txid,
+                'n'           => $n,
+                'amount'      => $output->getValue(), // in satoshis
+                'script'      => $output->getScript()->getHex(),
+            ];
+        };
+
+        return new ComposedTransaction($txid, $hex, $input_utxos, $output_utxos);
+    }
 
     protected function sumUTXOs($utxos) {
         $total = 0;

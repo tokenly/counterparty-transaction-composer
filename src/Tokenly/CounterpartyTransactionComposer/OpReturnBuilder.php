@@ -16,7 +16,7 @@ class OpReturnBuilder
     public function buildOpReturn($raw_amount, $asset, $txid) {
         // normalize $raw_amount
         if ($raw_amount instanceof Quantity) {
-            $amount = $raw_amount->getRawValue();
+            $amount = dechex(round($raw_amount->getValueForCounterpartyRPC()));
         } else {
             $amount = dechex(round($raw_amount * self::SATOSHI));
         }
