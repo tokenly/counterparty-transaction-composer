@@ -42,6 +42,9 @@ class OpReturnBuilder
     }
 
     protected function assetNameToIDHex($asset_name) {
+        if ($asset_name == 'BTC') { return '0'; }
+        if ($asset_name == 'XCP') { return '1'; }
+
         $n = gmp_init(0);
         for ($i=0; $i < strlen($asset_name); $i++) {
             $n = gmp_mul($n, 26);
