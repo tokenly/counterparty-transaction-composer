@@ -14,7 +14,7 @@
         "php": ">=5.5.0",
         "ext-mcrypt": "*",
         "ext-gmp": "*",
-        "bitwasp/bitcoin": "v0.0.13.2",
+        "bitwasp/bitcoin": "v0.0.18",
         "tokenly/counterparty-transaction-parser": "dev-master"
     },
     "require-dev": {

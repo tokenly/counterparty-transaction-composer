@@ -1,6 +1,7 @@
 <?php
 
 use BitWasp\Bitcoin\Address\AddressFactory;
+use BitWasp\Bitcoin\Script\Opcodes;
 use BitWasp\Bitcoin\Transaction\TransactionFactory;
 use Tokenly\BitcoinAddressLib\BitcoinAddressGenerator;
 use Tokenly\CounterpartyTransactionComposer\ComposedTransaction;
@@ -78,7 +79,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // check output 2
         $tx_output_1 = $transaction->getOutput(1);
-        $op_return = $tx_output_1->getScript()->getScriptParser()->parse()[1]->getHex();
+        $op_return = $tx_output_1->getScript()->getScriptParser()->decode()[1]->getData()->getHex();
         $txid = $transaction->getInput(0)->getTransactionId();
         $hex = $this->arc4decrypt($txid, $op_return);
         $expected_hex = '434e54525052545900000000000000000004fadf000000010c388d00';
@@ -215,8 +216,8 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         PHPUnit::assertEquals($destination, AddressFactory::fromOutputScript($tx_output_0->getScript())->getAddress());
 
         $tx_output_1 = $transaction->getOutput(1);
-        $op_return = $tx_output_1->getScript()->getScriptParser()->parse()[0];
-        PHPUnit::assertEquals("OP_RETURN", $op_return);
+        $op_return = $tx_output_1->getScript()->getScriptParser()->decode()[0];
+        PHPUnit::assertEquals(Opcodes::OP_RETURN, $op_return->getOp());
     }
 
     /**
@@ -403,7 +404,8 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         PHPUnit::assertEquals($destination, AddressFactory::fromOutputScript($tx_output_0->getScript())->getAddress());
 
         // OP_RETURN
-        PHPUnit::assertEquals("OP_RETURN", $transaction->getOutput(1)->getScript()->getScriptParser()->parse()[0]);
+        $op = $transaction->getOutput(1)->getScript()->getScriptParser()->decode()[0];
+        PHPUnit::assertEquals(Opcodes::OP_RETURN, $op->getOp());
 
         // check change outputs
         $tx_output = $transaction->getOutput(2);
