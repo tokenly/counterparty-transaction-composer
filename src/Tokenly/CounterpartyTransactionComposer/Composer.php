@@ -53,7 +53,7 @@ class Composer
         $tx_builder = TransactionFactory::build();
 
         // add the UTXO inputs
-        $this->addInputs($utxos, $tx_builder);
+        $input_scripts = $this->addInputs($utxos, $tx_builder);
 
         // pay the btc_dust to the destination
         if (is_array($destination)) { throw new Exception("Multiple destinations are not supported for cunterparty sends", 1); }
@@ -69,7 +69,7 @@ class Composer
         $this->payChange($change_amounts, $tx_builder);
 
         // sign
-        $signed_transaction = $this->signTx($private_key_wif, $tx_builder);
+        $signed_transaction = $this->signTx($private_key_wif, $tx_builder, $input_scripts);
 
         // return [$txid, $hex, $output_utxos]
         return $this->buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $utxos);
@@ -95,7 +95,7 @@ class Composer
         $tx_builder = TransactionFactory::build();
 
         // add the UTXO inputs
-        $this->addInputs($utxos, $tx_builder);
+        $input_scripts = $this->addInputs($utxos, $tx_builder);
 
         // pay the btc amount to each destination
         foreach($destinations as $destination_pair) {
@@ -108,7 +108,7 @@ class Composer
         $this->payChange($change_amounts, $tx_builder);
 
         // sign
-        $signed_transaction = $this->signTx($private_key_wif, $tx_builder);
+        $signed_transaction = $this->signTx($private_key_wif, $tx_builder, $input_scripts);
 
         // return [$txid, $hex, $output_utxos]
         return $this->buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $utxos);
@@ -175,10 +175,13 @@ class Composer
     }
 
     protected function addInputs($utxos, $tx_builder) {
+        $input_scripts = [];
         foreach($utxos as $utxo) {
             $input_script = ScriptFactory::fromHex($utxo['script']);
             $tx_builder->input($utxo['txid'], $utxo['n'], $input_script);
+            $input_scripts[] = $input_script;
         }
+        return $input_scripts;
     }
 
     protected function payChange($change_amounts, $tx_builder) {
@@ -191,14 +194,14 @@ class Composer
         }
     }
 
-    protected function signTx($private_key_wif, $tx_builder) {
+    protected function signTx($private_key_wif, $tx_builder, $input_scripts) {
         $private_key = PrivateKeyFactory::fromWif($private_key_wif);
         $transaction = $tx_builder->get();
         $signer = new TxSigner(Bitcoin::getEcAdapter(), $transaction);
 
-        // sign each vin script...
-        foreach($transaction->getInputs() as $offset => $input) {
-            $signer->sign($offset, $private_key, $input->getScript());
+        // sign each input script
+        foreach($input_scripts as $offset => $input_script) {
+            $signer->sign($offset, $private_key, $input_script);
         }
 
         $signed_transaction = $signer->get();
