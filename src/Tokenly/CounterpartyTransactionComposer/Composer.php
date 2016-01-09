@@ -22,8 +22,9 @@ class Composer
 
     const DEFAULT_FEE      = 10000; // 0.00010000;
     const DEFAULT_BTC_DUST =  5430; // 0.00005430;
+    const MINIMUM_CHANGE_SIZE = 5000; // 0.00005000;
 
-    const HIGH_CHANGE      = 10000; // 0.0001;
+    const HIGH_FEE      = 100000; // 0.001;
 
     const SATOSHI          = 100000000;
 
@@ -132,6 +133,13 @@ class Composer
             return [];
         }
 
+        if ($total_change_amount_satoshis < self::MINIMUM_CHANGE_SIZE) {
+            // very small change transactions are not allowed
+            //   set change to 0 and pay the rest as in the fee
+            $total_change_amount_satoshis = 0;
+            $fee_satoshis = $fee_satoshis + $total_change_amount_satoshis;
+        }
+
 
         if (!is_array($change_address_collection)) {
             // default is a single change address
@@ -166,7 +174,9 @@ class Composer
                 }
             }
 
-            if ($change_remaining AND $change_remaining >= self::HIGH_CHANGE) {
+            // recalculate fee
+            $fee_satoshis = $fee_satoshis + $change_remaining;
+            if ($fee_satoshis AND $fee_satoshis >= self::HIGH_FEE) {
                 throw new ComposerException("Found unexpected high fee", ComposerException::ERROR_UNEXPECTED_HIGH_FEE); 
             }
         }
