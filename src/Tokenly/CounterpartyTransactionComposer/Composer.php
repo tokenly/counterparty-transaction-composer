@@ -33,7 +33,7 @@ class Composer
      * @param  string $asset                     A counterparty asset name or BTC
      * @param  mixed  $quantity                  Quantity of asset to send.  Accepts a float or a Tokenly\CounterpartyTransactionComposer\Quantity object.  Use a Quantity object for indivisible assets.
      * @param  mixed $destination                A single destination bitcoin address.  For BTC sends an array of [[address, amount], [address, amount]] is also allowed.  Amounts should be float values.
-     * @param  string $private_key_wif           The private key in ASCII WIF format
+     * @param  string $private_key_wif           The private key in ASCII WIF format.  This can be null to compose an unsigned transaction.
      * @param  array  $utxos                     An array of UTXOs.  Each UTXO should be ['txid' => txid, 'n' => n, 'amount' => amount (in satoshis), 'script' => script hexadecimal string]
      * @param  mixed  $change_address_collection a single address string to receive all change. Or an array of [[address, amount], [address, amount], [address]].  Amounts should be float values.  An address with no amount for the last entry will send the remaining change to that address.
      * @param  float  $fee                       A fee
@@ -70,10 +70,14 @@ class Composer
         $this->payChange($change_amounts, $tx_builder);
 
         // sign
-        $signed_transaction = $this->signTx($private_key_wif, $tx_builder, $input_scripts);
+        if ($private_key_wif !== null) {
+            $signed_transaction = $this->signTx($private_key_wif, $tx_builder, $input_scripts);
+            return $this->buildReturnValuesFromTransactionAndInputs($signed_transaction, $utxos, true);
+        }
 
-        // return [$txid, $hex, $output_utxos]
-        return $this->buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $utxos);
+        return $this->buildReturnValuesFromTransactionAndInputs($tx_builder->get(), $utxos, false);
+
+
     }
 
     //  @see composeSend
@@ -109,10 +113,13 @@ class Composer
         $this->payChange($change_amounts, $tx_builder);
 
         // sign
-        $signed_transaction = $this->signTx($private_key_wif, $tx_builder, $input_scripts);
 
-        // return [$txid, $hex, $output_utxos]
-        return $this->buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $utxos);
+        if ($private_key_wif !== null) {
+            $signed_transaction = $this->signTx($private_key_wif, $tx_builder, $input_scripts);
+            return $this->buildReturnValuesFromTransactionAndInputs($signed_transaction, $utxos, true);
+        }
+
+        return $this->buildReturnValuesFromTransactionAndInputs($tx_builder->get(), $utxos, false);
     }
 
     // ------------------------------------------------------------------------
@@ -218,7 +225,7 @@ class Composer
         return $signed_transaction;
     }
 
-    protected function buildReturnValuesFromSignedTransactionAndInputs($signed_transaction, $input_utxos) {
+    protected function buildReturnValuesFromTransactionAndInputs($signed_transaction, $input_utxos, $is_signed) {
         $txid = $signed_transaction->getTxId()->getHex();
         $hex  = $signed_transaction->getHex();
 
@@ -235,7 +242,7 @@ class Composer
             ];
         };
 
-        return new ComposedTransaction($txid, $hex, $input_utxos, $output_utxos);
+        return new ComposedTransaction($txid, $hex, $input_utxos, $output_utxos, $is_signed);
     }
 
     protected function sumUTXOs($utxos) {
