@@ -14,7 +14,7 @@
         "php": ">=5.5.0",
         "ext-mcrypt": "*",
         "ext-gmp": "*",
-        "bitwasp/bitcoin": "v0.0.18",
+        "bitwasp/bitcoin": "^0.0.30",
         "tokenly/counterparty-transaction-parser": "dev-master"
     },
     "require-dev": {
@@ -22,7 +22,7 @@
         "tokenly/bitcoin-address-lib": "dev-master"
     },
     "autoload": {
-        "psr-0": {"Tokenly\\CounterpartyTransactionComposer": "src"}
+        "psr-4": {"Tokenly\\CounterpartyTransactionComposer\\": "src/"}
     },
 
     "minimum-stability": "dev",

@@ -80,7 +80,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         // check output 2
         $tx_output_1 = $transaction->getOutput(1);
         $op_return = $tx_output_1->getScript()->getScriptParser()->decode()[1]->getData()->getHex();
-        $txid = $transaction->getInput(0)->getTransactionId();
+        $txid = $transaction->getInput(0)->getOutPoint()->getTxId()->getHex();
         $hex = $this->arc4decrypt($txid, $op_return);
         $expected_hex = '434e54525052545900000000000000000004fadf000000010c388d00';
         PHPUnit::assertEquals($expected_hex, $hex);
