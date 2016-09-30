@@ -421,6 +421,80 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         PHPUnit::assertEquals($change_addresses[2][0], AddressFactory::fromOutputScript($tx_output->getScript())->getAddress());
     }
 
+
+    public function testComposeP2SHDestinationBTCTransaction() {
+        list($sender_address, $wif_key) = $this->newAddressAndKey();
+
+        // variables
+        $utxos       = $this->fakeUTXOs($sender_address);
+        $asset       = 'BTC';
+        $quantity    = 0.023;
+        $destination = '3AAAA1111xxxxxxxxxxxxxxxxxxy3SsDsZ';
+        $fee         = 0.0001;
+
+        // compose the send
+        $composer = new Composer();
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, new Quantity($quantity), $destination, $wif_key, $utxos, $sender_address, $fee));
+
+        // parse the signed hex
+        $transaction = TransactionFactory::fromHex($signed_hex);
+
+        // 2 outputs only
+        PHPUnit::assertCount(2, $transaction->getOutputs());
+
+        // check destination
+        $tx_output_0 = $transaction->getOutput(0);
+        PHPUnit::assertEquals(intval(round($quantity * self::SATOSHI)), $tx_output_0->getValue());
+        PHPUnit::assertEquals($destination, AddressFactory::fromOutputScript($tx_output_0->getScript())->getAddress());
+
+        // check change output 
+        $tx_output_1 = $transaction->getOutput(1);
+        PHPUnit::assertEquals(intval(round((0.123 + 0.0005 - $fee - $quantity) * self::SATOSHI)), $tx_output_1->getValue());
+        PHPUnit::assertEquals($sender_address, AddressFactory::fromOutputScript($tx_output_1->getScript())->getAddress());
+    }
+
+
+    public function testComposeP2SHDestinationCounterpartyTransaction() {
+        list($sender_address, $wif_key) = $this->newAddressAndKey();
+
+        // variables
+        $utxos       = $this->fakeUTXOs($sender_address);
+        $asset       = 'SOUP';
+        $quantity    = 45;
+        $destination = '3AAAA1111xxxxxxxxxxxxxxxxxxy3SsDsZ';
+        $fee         = 0.0001;
+        $btc_dust    = 0.00005432;
+
+        // compose the send
+        $composer = new Composer();
+        list($txid, $signed_hex, $new_utxos) = $this->decomposeComposedTransaction($composer->composeSend($asset, $quantity, $destination, $wif_key, $utxos, $sender_address, $fee, $btc_dust));
+
+        // parse the signed hex
+        $transaction = TransactionFactory::fromHex($signed_hex);
+
+        // check output 1
+        $tx_output_0 = $transaction->getOutput(0);
+        PHPUnit::assertEquals(intval(round($btc_dust * self::SATOSHI)), $tx_output_0->getValue());
+        PHPUnit::assertEquals($destination, AddressFactory::fromOutputScript($tx_output_0->getScript())->getAddress());
+
+        // check output 2
+        $tx_output_1 = $transaction->getOutput(1);
+        $op_return = $tx_output_1->getScript()->getScriptParser()->decode()[1]->getData()->getHex();
+        $txid = $transaction->getInput(0)->getOutPoint()->getTxId()->getHex();
+        $hex = $this->arc4decrypt($txid, $op_return);
+        $expected_hex = '434e54525052545900000000000000000004fadf000000010c388d00';
+        PHPUnit::assertEquals($expected_hex, $hex);
+
+        // check output 3
+        $tx_output_2 = $transaction->getOutput(2);
+        PHPUnit::assertEquals(intval(round((0.123 + 0.0005 - $fee - $btc_dust) * self::SATOSHI)), $tx_output_2->getValue());
+        PHPUnit::assertEquals($sender_address, AddressFactory::fromOutputScript($tx_output_2->getScript())->getAddress());
+
+        // check $new_utxos
+        PHPUnit::assertNotEmpty($new_utxos);
+        PHPUnit::assertEquals(5432, $new_utxos[0]['amount']);
+    }
+
     // ------------------------------------------------------------------------
     
     protected function arc4decrypt($key, $encrypted_text)
