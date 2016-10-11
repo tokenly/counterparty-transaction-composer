@@ -6,6 +6,7 @@ use \Exception;
 
 /*
 * Quantity
+* [DEPRECATED] Use tokenly/crypto-quantity instead
 */
 class Quantity
 {

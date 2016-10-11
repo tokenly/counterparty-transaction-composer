@@ -13,6 +13,7 @@ use BitWasp\Buffertools\Buffer;
 use Tokenly\CounterpartyTransactionComposer\ComposedTransaction;
 use Tokenly\CounterpartyTransactionComposer\Exception\ComposerException;
 use Tokenly\CounterpartyTransactionComposer\Quantity;
+use Tokenly\CryptoQuantity\CryptoQuantity;
 use \Exception;
 
 /*
@@ -32,8 +33,8 @@ class Composer
     /**
      * Composes a send transaction
      * @param  string $asset                     A counterparty asset name or BTC
-     * @param  mixed  $quantity                  Quantity of asset to send.  Accepts a float or a Tokenly\CounterpartyTransactionComposer\Quantity object.  Use a Quantity object for indivisible assets.
-     * @param  mixed $destination                A single destination bitcoin address.  For BTC sends an array of [[address, amount], [address, amount]] is also allowed.  Amounts should be float values.
+     * @param  mixed  $quantity                  Quantity of asset to send.  Accepts a float or a Tokenly\CounterpartyTransactionComposer\Quantity or Tokenly\CryptoQuantity\CryptoQuantity object.  Use a Quantity object for indivisible assets.
+     * @param  mixed  $destination               A single destination bitcoin address.  For BTC sends an array of [[address, amount], [address, amount]] is also allowed.  Amounts should be float values.
      * @param  string $private_key_wif           The private key in ASCII WIF format.  This can be null to compose an unsigned transaction.
      * @param  array  $utxos                     An array of UTXOs.  Each UTXO should be ['txid' => txid, 'n' => n, 'amount' => amount (in satoshis), 'script' => script hexadecimal string]
      * @param  mixed  $change_address_collection a single address string to receive all change. Or an array of [[address, amount], [address, amount], [address]].  Amounts should be float values.  An address with no amount for the last entry will send the remaining change to that address.
@@ -84,7 +85,9 @@ class Composer
     //  @see composeSend
     public function composeBTCSend($btc_quantity, $destination_or_destinations, $private_key_wif, $utxos, $change_address_collection=null, $fee=null) {
         // normalize $btc_quantity
-        if ($btc_quantity instanceof Quantity) {
+        if ($btc_quantity instanceof CryptoQuantity) {
+            $btc_quantity_satoshis = $btc_quantity->getSatoshisString();
+        } else if ($btc_quantity instanceof Quantity) {
             $btc_quantity_satoshis = $btc_quantity->getSatoshis();
         } else {
             $btc_quantity_satoshis = intval(round($btc_quantity * self::SATOSHI));

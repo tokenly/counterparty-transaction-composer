@@ -19,6 +19,7 @@
     },
     "require-dev": {
         "phpunit/phpunit": "~4",
+        "tokenly/crypto-quantity": "^1.0.0",
         "tokenly/bitcoin-address-lib": "dev-master"
     },
     "autoload": {

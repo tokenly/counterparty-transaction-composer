@@ -8,7 +8,7 @@ use Tokenly\BitcoinAddressLib\BitcoinAddressGenerator;
 use Tokenly\CounterpartyTransactionComposer\ComposedTransaction;
 use Tokenly\CounterpartyTransactionComposer\Composer;
 use Tokenly\CounterpartyTransactionComposer\OpReturnBuilder;
-use Tokenly\CounterpartyTransactionComposer\Quantity;
+use Tokenly\CryptoQuantity\CryptoQuantity;
 use \PHPUnit_Framework_Assert as PHPUnit;
 
 /*
@@ -35,7 +35,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         $op_return_builder = new OpReturnBuilder();
 
         $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
-        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(Quantity::individisibleAssetQuantity(600), 'SOUP', $fake_txid));
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(CryptoQuantity::fromIndivisibleAmount(600), 'SOUP', $fake_txid));
 
         // 434e545250525459 | 00000000 | 000000000004fadf | 0000000000000258
         // prefix             type       asset              amount
@@ -47,7 +47,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         $op_return_builder = new OpReturnBuilder();
 
         $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
-        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(new Quantity(600), 'SOUP', $fake_txid));
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(CryptoQuantity::fromFloat(600), 'SOUP', $fake_txid));
 
         // 434e545250525459 | 00000000 | 000000000004fadf | 0000000df8475800
         // prefix             type       asset              amount
@@ -108,7 +108,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, new Quantity($quantity), $destination, $wif_key, $utxos, $sender_address, $fee));
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, CryptoQuantity::fromFloat($quantity), $destination, $wif_key, $utxos, $sender_address, $fee));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -140,7 +140,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, new Quantity($quantity), $destinations, $wif_key, $utxos, $sender_address, $fee));
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, CryptoQuantity::fromFloat($quantity), $destinations, $wif_key, $utxos, $sender_address, $fee));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -435,7 +435,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, new Quantity($quantity), $destination, $wif_key, $utxos, $sender_address, $fee));
+        list($txid, $signed_hex) = $this->decomposeComposedTransaction($composer->composeSend($asset, CryptoQuantity::fromFloat($quantity), $destination, $wif_key, $utxos, $sender_address, $fee));
 
         // parse the signed hex
         $transaction = TransactionFactory::fromHex($signed_hex);
@@ -517,7 +517,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        $composed_unsigned_send = $composer->composeSend($asset, new Quantity($quantity), $destination, null, $utxos, $sender_address, $fee);
+        $composed_unsigned_send = $composer->composeSend($asset, CryptoQuantity::fromFloat($quantity), $destination, null, $utxos, $sender_address, $fee);
         list($txid, $unsigned_hex) = $this->decomposeComposedTransaction($composed_unsigned_send);
 
         // parse the signed hex
@@ -557,7 +557,7 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
 
         // compose the send
         $composer = new Composer();
-        $composed_unsigned_send = $composer->composeSend($asset, new Quantity($quantity), $destination, null, $utxos, $sender_address, $fee, $btc_dust);
+        $composed_unsigned_send = $composer->composeSend($asset, CryptoQuantity::fromFloat($quantity), $destination, null, $utxos, $sender_address, $fee, $btc_dust);
         list($txid, $unsigned_hex, $new_utxos) = $this->decomposeComposedTransaction($composed_unsigned_send);
 
         // parse the signed hex

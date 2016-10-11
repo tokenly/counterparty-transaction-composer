@@ -3,6 +3,7 @@
 namespace Tokenly\CounterpartyTransactionComposer;
 
 use Tokenly\CounterpartyTransactionComposer\Quantity;
+use Tokenly\CryptoQuantity\CryptoQuantity;
 use \Exception;
 
 /*
@@ -15,7 +16,9 @@ class OpReturnBuilder
 
     public function buildOpReturn($raw_amount, $asset, $txid) {
         // normalize $raw_amount
-        if ($raw_amount instanceof Quantity) {
+        if ($raw_amount instanceof CryptoQuantity) {
+            $amount = dechex(round($raw_amount->getValueForCounterparty()));
+        } else if ($raw_amount instanceof Quantity) {
             $amount = dechex(round($raw_amount->getValueForCounterpartyRPC()));
         } else {
             $amount = dechex(round($raw_amount * self::SATOSHI));
