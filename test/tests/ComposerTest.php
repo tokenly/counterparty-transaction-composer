@@ -586,6 +586,38 @@ class ComposerTest extends \PHPUnit_Framework_TestCase
         PHPUnit::assertEquals(5432, $new_utxos[0]['amount']);
     }
 
+    public function testComposeNumericAssetID() {
+        $op_return_builder = new OpReturnBuilder();
+
+        $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
+        $hex = $this->arc4decrypt($fake_txid, $op_return_builder->buildOpReturn(100, 'A768915753791388330', $fake_txid));
+
+        //               434e545250525459 | 00000000 | 0aabbccddeeffaaa | 00000002540be400
+        //               prefix             type       asset              amount
+        $expected_hex = '434e545250525459'.'00000000'.'0aabbccddeeffaaa'.'00000002540be400';
+        PHPUnit::assertEquals($expected_hex, $hex);
+    }
+
+    /**
+     * @expectedException        Exception
+     * @expectedExceptionMessage Asset ID was too high
+     */
+    public function testComposeTooBigNumericAssetID() {
+        $op_return_builder = new OpReturnBuilder();
+        $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
+        $op_return_builder->buildOpReturn(100, 'A18446744073709551616', $fake_txid);
+    }
+
+    /**
+     * @expectedException        Exception
+     * @expectedExceptionMessage Asset ID was too low
+     */
+    public function testComposeTooSmallNumericAssetID() {
+        $op_return_builder = new OpReturnBuilder();
+        $fake_txid = 'deadbeef00000000000000000000000000000000000000000000000000001111';
+        $op_return_builder->buildOpReturn(100, 'A95428956661682176', $fake_txid);
+    }
+
     // ------------------------------------------------------------------------
     
     protected function arc4decrypt($key, $encrypted_text)

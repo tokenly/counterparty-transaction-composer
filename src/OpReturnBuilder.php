@@ -48,6 +48,15 @@ class OpReturnBuilder
         if ($asset_name == 'BTC') { return '0'; }
         if ($asset_name == 'XCP') { return '1'; }
 
+        if (substr($asset_name, 0, 1) == 'A') {
+            // numerical asset
+            // An integer between 26^12 + 1 and 256^8 (inclusive)
+            $asset_id = gmp_init(substr($asset_name, 1));
+            if ($asset_id < gmp_init(26)**12 + 1) { throw new Exception("Asset ID was too low", 1); }
+            if ($asset_id > gmp_init(2)**64 - 1) { throw new Exception("Asset ID was too high", 1); }
+            return gmp_strval($asset_id, 16);
+        }
+
         $n = gmp_init(0);
         for ($i=0; $i < strlen($asset_name); $i++) {
             $n = gmp_mul($n, 26);
