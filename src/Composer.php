@@ -134,7 +134,7 @@ class Composer
 
         // calculate change
         $total_change_amount_satoshis = $vins_amount_total_satoshis - $btc_quantity_satoshis - $fee_satoshis;
-        if ($total_change_amount_satoshis < 0) { throw new ComposerException("Insufficient funds for this transaction", ComposerException::ERROR_INSUFFICIENT_FUNDS); }
+        if ($total_change_amount_satoshis < 0) { throw new ComposerException("Insufficient funds for this transaction.  Need ".(0-$total_change_amount_satoshis)." satoshis more", ComposerException::ERROR_INSUFFICIENT_FUNDS); }
 
         // check change address
         if (!$change_address_collection) {
